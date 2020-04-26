@@ -1,11 +1,14 @@
 import random
 
 class ConvexHull2D:
-	def __init__(self, n=None):
+	def __init__(self, n=None, test_points=None):
 		self.count = 0
 		if n:
 			self.generatePoints(n)
 			print(self.points)
+		if test_points:
+			self.points = test_points
+			self.n = len(test_points)
 
 	def generatePoints(self, n_points, xrange=(0, 50), yrange=(0, 50)):
 		if n_points < 3:
