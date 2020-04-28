@@ -16,11 +16,11 @@ class GUI(Frame):
         #c.generatePoints(10, (50, 700), (50, 450))
         #self.drawPoints(c.points, c.runJarvisAlgo())
         
-        #result_j = c.runJarvisAlgo()
+        #result_j = self.cvxhull.runJarvisAlgo()
         #print(f"Jarvis: {result_j}")
-        #result_g = c.runGrahamAlgo()
+        #result_g = self.cvxhull.runGrahamAlgo()
         #print(f"Graham: {result_g}")
-        #self.drawPoints(c.points, result_j, result_g)
+        #self.drawPoints()
 
         #self.event = event
         self.max_count = max_count
@@ -41,7 +41,7 @@ class GUI(Frame):
         return canvas
 
     def drawPoints(self):
-        self.cvxhull.generatePoints(50, (50, 700), (50, 450))
+        self.cvxhull.generatePoints(10, (50, 700), (50, 450))
         jarvis_ind = self.cvxhull.runJarvisAlgo()
         graham_ind = self.cvxhull.runGrahamAlgo()
         points = self.cvxhull.points
@@ -57,6 +57,9 @@ class GUI(Frame):
                 fill_col = "#000000"
             self.canvas.create_oval(
                 x1, y1, x2, y2, fill=fill_col, width=2, outline=fill_col)
+            self.canvas.create_text(
+                x1, y1+12, text=str(ind)+str(point))
+
         for ind in graham_ind:
             x1, y1 = points[ind]
 
@@ -65,10 +68,19 @@ class GUI(Frame):
                 x1-8, y1-8, x1+8, y1+8, 
                 outline=outline_color, width=1
             )
-        '''
-        if len(jarvis_ind) > 0:
-            self.canvas.after(500, self.drawPoints, points, jarvis_ind[:-1])
-        '''
+
+        first_point = jarvis_ind[0]
+        next_ind = 1
+        while next_ind < len(jarvis_ind):
+            x1, y1 = points[jarvis_ind[next_ind-1]]
+            x2, y2 = points[jarvis_ind[next_ind]]
+            self.canvas.create_line(x1, y1, x2, y2)
+            next_ind += 1
+        x1, y1 = points[jarvis_ind[next_ind-1]]
+        x2, y2 = points[first_point]
+        self.canvas.create_line(x1, y1, x2, y2)
+
+        
     def eventCheck(self):
         #flag = self.event.is_set()
 
@@ -87,7 +99,7 @@ class GUI(Frame):
 
         self.drawPoints()
 
-        self.master.after(2000, self.eventCheck)
+        self.master.after(4000, self.eventCheck)
 
 def timingLoop(event):
     pass
@@ -108,8 +120,8 @@ def main():
     t.daemon = True
     t.start()
 
-    gui = GUI(event, 5)
-    root.geometry("750x500+300+300")
+    gui = GUI(event, 50)
+    root.geometry("1250x900+300+300")
     root.mainloop()
 
 

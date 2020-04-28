@@ -10,7 +10,7 @@ class ConvexHull2D:
 			self.points = test_points
 			self.n = len(test_points)
 
-	def generatePoints(self, n_points, xrange=(0, 50), yrange=(0, 50)):
+	def generatePoints(self, n_points, xrange=(50, 1200), yrange=(50, 850)):
 		if n_points < 3:
 			print("Minimum 3 points required.. Replacing n with 3")
 			n_points = 3
@@ -44,6 +44,9 @@ class ConvexHull2D:
 				or points
 		return - 
 			type: numeric (float/int)
+			Negative val = clockwise rotation from pq to pr
+			Positve val = anticlockwise rotation from pq to pr
+			Zero val = pq and pr are colinear
 		"""
 		try:
 			if as_index:
@@ -96,7 +99,7 @@ class ConvexHull2D:
 					continue
 
 				orientation = self.orientation(ind_p, ind_q, ind_r)
-				if orientation > 0:
+				if orientation < 0:
 					ind_q = ind_r
 				if orientation == 0:
 					# for overlapping vectors, pick the farther point
@@ -147,7 +150,7 @@ class ConvexHull2D:
 			while i < len(left_arr) and j < len(right_arr):
 				if self.orientation(
 				self.points[pivot_ind],
-				left_arr[i], right_arr[j], False) < 0:
+				left_arr[i], right_arr[j], False) > 0:
 					points[k] = left_arr[i]
 					i += 1
 					k += 1
@@ -181,34 +184,34 @@ class ConvexHull2D:
 			+ self.sortPointsAround(ind_leftMostPoint)
 
 		# result contains indices of sorted_points
-		result_hull = [0, 1, 2]
+		result_hull = sorted_points[:3]
 
-		p, q, r = 1, 2, 3
-		while (r < len(sorted_points)):
+		p, q, r = sorted_points[1:4]
+		ind_r = 3
+		while (ind_r < len(sorted_points)):
 			if detail:
-				print(f'p = {p} q = {q} r = {r}, result_hull = {[self.points.index(sorted_points[ind]) for ind in result_hull]}')
+				print(f'p = {self.points.index(p)} q = {self.points.index(q)} r = {self.points.index(r)}, result_hull = {[self.points.index(point) for point in result_hull]}')
 				num = input('Continue ?')
-			orient = self.orientation(
-				sorted_points[p], 
-				sorted_points[q],
-				sorted_points[r], False)
+			orient = self.orientation(p, q, r, False)
 			if detail:
 				print(orient)
-			if orient < 0:
+			if orient > 0:
 				# move forward
 				result_hull.append(r)
 				p = q
 				q = r
-				r = r + 1
+				ind_r = ind_r + 1
+				if ind_r == len(sorted_points):
+					break
+				r = sorted_points[ind_r]
 
 			else:
 				# remove the last point from result
-				result_hull = result_hull[:-1]
-				q = p
-				p = p - 1
+				result_hull.pop()
+				p, q = result_hull[-2:]
 		
-		return [self.points.index(sorted_points[ind])
-			for ind in result_hull]
+		return [self.points.index(point)
+			for point in result_hull]
 
 
 	def createHull(self, algo='jarvis'):
