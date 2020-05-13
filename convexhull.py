@@ -1,16 +1,23 @@
 import random
+import time
+import threading
 
 class ConvexHull2D:
-	def __init__(self, n=None, test_points=None):
+	def __init__(self, n=None, points=None, delay=500):
 		self.count = 0
 		if n:
 			self.generatePoints(n)
-			print(self.points)
-		if test_points:
-			self.points = test_points
-			self.n = len(test_points)
+			if n < 15:
+				print(self.points)
+		if points:
+			self.points = points
+			self.n = len(points)
+		
+		if delay:
+			self.delayinsec = (delay-1)/1000
 
-	def generatePoints(self, n_points, xrange=(50, 1200), yrange=(50, 850)):
+
+	def generatePoints(self, n_points, x_range=(50, 1200), y_range=(50, 850)):
 		if n_points < 3:
 			print("Minimum 3 points required.. Replacing n with 3")
 			n_points = 3
@@ -18,7 +25,7 @@ class ConvexHull2D:
 		self.n = n_points
 
 		self.points = [
-			(random.randint(*xrange), random.randint(*yrange))
+			(random.randint(*x_range), random.randint(*y_range))
 			for _ in range(self.n)]
 
 
@@ -81,15 +88,13 @@ class ConvexHull2D:
 				ind_leftMostPoint = ind
 		return ind_leftMostPoint
 
+	"""
 	def runJarvisAlgo(self):
-		""" Jarvis Algorithm """
+		''' Jarvis Algorithm '''
 
 		ind_leftMostPoint = self.findLeftMostPoint()
-
 		ind_p = ind_leftMostPoint
-
 		result_hull = [ind_p]
-
 
 		while (True):
 			ind_q = (ind_p + 1) % self.n
@@ -115,6 +120,75 @@ class ConvexHull2D:
 			result_hull.append(ind_p)
 
 		return result_hull
+	"""
+
+	def setupJarvisState(self):
+		print("Setting up jarvis state")
+		self.jarvis = {
+			'ind_leftMostPoint': None,
+				'ind_p': None,
+				'ind_q': None,
+				'ind_r': None,
+				'result_hull': [],
+		}
+		print("Finished Setup")
+
+	def runJarvis(self, trackstatus=False):
+		if trackstatus:
+			self.setupJarvisState()
+
+		ind_leftMostPoint = self.findLeftMostPoint()
+		ind_p = ind_leftMostPoint
+		result_hull = [ind_p]
+		
+		if trackstatus:
+			self.jarvis['ind_leftMostPoint'] = ind_leftMostPoint
+			self.jarvis['ind_p'] = ind_p
+			self.jarvis['result_hull'].append(ind_p)
+			
+		while (True):
+
+			ind_q = (ind_p + 1) % self.n
+			if trackstatus:
+				self.jarvis['ind_q'] = ind_q
+
+			for ind_r, point_r in enumerate(self.points):
+				if trackstatus:
+					time.sleep(self.delayinsec)
+					self.jarvis['ind_r'] = ind_r
+
+				if ind_r == ind_q:
+					continue
+
+				orientation = self.orientation(ind_p, ind_q, ind_r)
+				if orientation < 0:
+					ind_q = ind_r
+					if trackstatus:
+						self.jarvis['ind_q'] = ind_q
+
+				if orientation == 0:
+					# for overlapping vectors, pick the farther point
+					if self.squareDistance(ind_p, ind_r) > \
+					self.squareDistance(ind_p, ind_q):
+						ind_q = ind_r
+						if trackstatus:
+							self.jarvis['ind_q'] = ind_q
+			ind_p = ind_q
+			if trackstatus:
+				self.jarvis['ind_p'] = ind_q
+
+			if ind_p == ind_leftMostPoint:
+				break
+
+			result_hull.append(ind_p)
+			if trackstatus:
+				self.jarvis['result_hull'].append(ind_p)
+
+		if not trackstatus:
+			return result_hull
+		else:
+			return
+
 
 	def sortPointsAround(self, pivot_ind, points_override=None):
 		"""
@@ -186,32 +260,64 @@ class ConvexHull2D:
 		# result contains indices of sorted_points
 		result_hull = sorted_points[:3]
 
-		p, q, r = sorted_points[1:4]
-		ind_r = 3
-		while (ind_r < len(sorted_points)):
-			if detail:
-				print(f'p = {self.points.index(p)} q = {self.points.index(q)} r = {self.points.index(r)}, result_hull = {[self.points.index(point) for point in result_hull]}')
-				num = input('Continue ?')
-			orient = self.orientation(p, q, r, False)
-			if detail:
-				print(orient)
-			if orient > 0:
-				# move forward
-				result_hull.append(r)
-				p = q
-				q = r
-				ind_r = ind_r + 1
-				if ind_r == len(sorted_points):
-					break
-				r = sorted_points[ind_r]
+		if len(sorted_points) > 3:
+			p, q, r = sorted_points[1:4]
+			ind_r = 3
+			while (ind_r < len(sorted_points)):
 
-			else:
-				# remove the last point from result
-				result_hull.pop()
-				p, q = result_hull[-2:]
+				orient = self.orientation(p, q, r, False)
+				
+				if orient > 0:
+					# move forward
+					result_hull.append(r)
+					p = q
+					q = r
+					ind_r = ind_r + 1
+					if ind_r == len(sorted_points):
+						break
+					r = sorted_points[ind_r]
+
+				else:
+					# remove the last point from result
+					result_hull.pop()
+					p, q = result_hull[-2:]
 		
 		return [self.points.index(point)
 			for point in result_hull]
+
+
+	def runChanAlgo(self):
+		""" 
+		Chan's Divide and Conquer Algo
+		to find convex hull
+		"""
+		m = 4 # Must be at least 4
+
+		# number of subsets to be created
+		num_subsets = int(self.n/m)
+
+		# List of list holding subsets of all points
+		subsets = []
+		i = 0
+		for i in range(1, num_subsets):
+			subsets.append(self.points[(i-1)*4:i*4])
+		subsets.append(self.points[i*4:])
+
+		# List of result points from running Graham on
+		# all subsets
+		cvxhull_subsets = []
+		for subset in subsets:
+			sub_cvx = ConvexHull2D(points=subset)
+			for ind in sub_cvx.runGrahamAlgo():
+				cvxhull_subsets.append(subset[ind])
+			del sub_cvx
+
+		# Run jarvis on Graham result of subsets
+		sub_cvx = ConvexHull2D(points=cvxhull_subsets)
+
+		# Return result in original indices
+		return [self.points.index(cvxhull_subsets[ind]) 
+			for ind in sub_cvx.runJarvisAlgo()]
 
 
 	def createHull(self, algo='jarvis'):
@@ -220,21 +326,27 @@ class ConvexHull2D:
 			return self.runJarvisAlgo()
 		return []
 
-def test(n=10):
-	c = ConvexHull2D(n)
+
+def test(n=300):
+	c = ConvexHull2D(points=[(1, 1), (2, 5), (2, 3), (3, 3)])
 
 	ind_left = c.findLeftMostPoint()
 	sorted_points = c.sortPointsAround(ind_left)
+	"""
 	for ind, point in enumerate(sorted_points[:-1]):
 		args = (c.points[ind_left], sorted_points[ind], sorted_points[ind+1])
 		print(*args,
 			c.orientation(*args, False))
+	"""
 
-	jarvis_result = c.runJarvisAlgo()
+	jarvis_result = c.runJarvis()
 	print("Jarvis: ", jarvis_result)
 
 	graham_result = c.runGrahamAlgo()
 	print("Graham: ", graham_result)
+
+	chan_result = c.runChanAlgo()
+	print("Chan: ", chan_result)
 
 	if jarvis_result != graham_result:
 		c.runGrahamAlgo(detail=True)
@@ -243,4 +355,5 @@ def test(n=10):
 
 if __name__ == '__main__':
 	test()
+
 	

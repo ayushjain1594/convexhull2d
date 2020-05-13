@@ -5,27 +5,23 @@ import time
 from convexhull import ConvexHull2D
 
 class GUI(Frame):
-
-    def __init__(self, event, max_count=None):
+    def __init__(self):
         super().__init__()
 
         self.canvas = self.initializeUserInterface()
-
-        self.cvxhull = ConvexHull2D()
+        self.cvsobjects = {
+            'points': {},
+            'r_lines': {},
+            'circles': {},
+            'texts': {},
+            'lines': {}
+        }
         
-        #c.generatePoints(10, (50, 700), (50, 450))
-        #self.drawPoints(c.points, c.runJarvisAlgo())
-        
-        #result_j = self.cvxhull.runJarvisAlgo()
-        #print(f"Jarvis: {result_j}")
-        #result_g = self.cvxhull.runGrahamAlgo()
-        #print(f"Graham: {result_g}")
-        #self.drawPoints()
+        self.delay = 10 # in miliseconds
+        self.cvx = ConvexHull2D(n=100, delay=self.delay)
+        self.displayInitialPoints()
 
-        #self.event = event
-        self.max_count = max_count
-        self.count = 0
-        self.eventCheck()
+        self.callJarvisAlgorithm()
 
 
     def initializeUserInterface(self):
@@ -33,97 +29,190 @@ class GUI(Frame):
         self.pack(fill=BOTH, expand=1)
 
         canvas = Canvas(self)
-        #canvas.create_line(15, 25, 200, 25)
-        #canvas.create_line(300, 35, 300, 200, dash=(4, 2))
-        #canvas.create_line(55, 85, 155, 85, 105, 180, 55, 85)
 
         canvas.pack(fill=BOTH, expand=1)
         return canvas
 
-    def drawPoints(self):
-        self.cvxhull.generatePoints(10, (50, 700), (50, 450))
-        jarvis_ind = self.cvxhull.runJarvisAlgo()
-        graham_ind = self.cvxhull.runGrahamAlgo()
-        points = self.cvxhull.points
+    def displayInitialPoints(self):
+        for ind, point in enumerate(self.cvx.points):
+            x1, y1 = point
+            x1, y1 = x1 - 2, y1 -2
+            x2, y2 = point
+            x2, y2 = x2 + 2, y2 + 2
 
-        # clear canvas
-        self.canvas.delete('all')
-        for ind, point in enumerate(points):
-            x1, y1 = (point[0] - 2), (point[1] - 2)
-            x2, y2 = (point[0] + 2), (point[1] + 2)
-            if ind in jarvis_ind:
-                fill_col = "#008000"
-            else:
-                fill_col = "#000000"
-            self.canvas.create_oval(
-                x1, y1, x2, y2, fill=fill_col, width=2, outline=fill_col)
-            self.canvas.create_text(
-                x1, y1+12, text=str(ind)+str(point))
+            self.cvsobjects['points'][ind] = \
+                self.canvas.create_oval(x1, y1, x2, y2, 
+                    fill="#000000", width=2, outline="#000000"
+                )
 
-        for ind in graham_ind:
-            x1, y1 = points[ind]
+    def preJarvisGrahamStep(self):
+        # GUI variables to track changes in algorithm params
+        self.ind_p = None
+        self.ind_q = None
+        self.ind_r = None
+        self.counter = 0
 
-            outline_color = '#008000' if ind in jarvis_ind else '#ff0000'
-            self.canvas.create_oval(
-                x1-8, y1-8, x1+8, y1+8, 
-                outline=outline_color, width=1
-            )
+    def displayJarvis(self):
+        """ UPDATES CANVAS OBJECTS SHOWING JARVIS STEPS"""
+        try:
+            ind_p = self.cvx.jarvis['ind_p']
+            ind_q = self.cvx.jarvis['ind_q']
+            ind_r = self.cvx.jarvis['ind_r']
 
-        first_point = jarvis_ind[0]
-        next_ind = 1
-        while next_ind < len(jarvis_ind):
-            x1, y1 = points[jarvis_ind[next_ind-1]]
-            x2, y2 = points[jarvis_ind[next_ind]]
-            self.canvas.create_line(x1, y1, x2, y2)
-            next_ind += 1
-        x1, y1 = points[jarvis_ind[next_ind-1]]
-        x2, y2 = points[first_point]
-        self.canvas.create_line(x1, y1, x2, y2)
+            result = self.cvx.jarvis['result_hull']
 
+            try:
+                if ind_p != self.ind_p:
+                    # change in point p
+                    if self.cvsobjects['texts'].get('p', 'NA') != 'NA':
+                        self.canvas.delete(
+                            self.cvsobjects['texts']['p']
+                        )
+                        
+                    x, y = self.cvx.points[ind_p]
+                    self.cvsobjects['texts']['p'] = self.canvas.create_text(
+                        x, y+12, text='p '+str(ind_p))
+                    self.ind_p = ind_p
+
+                    if self.cvsobjects['lines'].get('pq', 'NA') != 'NA':
+                        self.canvas.delete(self.cvsobjects['lines']['pq'])
+                    if True or self.ind_q:
+                        q_x, q_y = self.cvx.points[self.ind_q]
+                        self.cvsobjects['lines']['pq'] = self.canvas.create_line(
+                            x, y, q_x, q_y, width=3)
+
+            except IndexError:
+                print('IndexError occured updating p')
+            except KeyError:
+                print('KeyError occured updating p')
+            except TypeError:
+                print('TypeError occured updating p')
+
+            try:
+                if ind_q != self.ind_q:
+                    # change in point q
+                    if self.cvsobjects['texts'].get('q', 'NA') != 'NA':
+                        self.canvas.delete(self.cvsobjects['texts']['q'])
+                        
+                    x, y = self.cvx.points[ind_q]
+                    self.cvsobjects['texts']['q'] = self.canvas.create_text(
+                        x, y+12, text='q '+str(ind_q))
+                    self.ind_q = ind_q
+
+                    if self.cvsobjects['lines'].get('pq', 'NA') != 'NA':
+                        self.canvas.delete(self.cvsobjects['lines']['pq'])
+                    if True or self.ind_p:
+                        p_x, p_y = self.cvx.points[self.ind_p]
+                        self.cvsobjects['lines']['pq'] = self.canvas.create_line(
+                            p_x, p_y, x, y, width=3)
+                    if self.cvsobjects['lines'].get('qr', 'NA') != 'NA':
+                        self.canvas.delete(self.cvsobjects['lines']['qr'])
+                    if True or self.ind_r:
+                        r_x, r_y = self.cvx.points[self.ind_r]
+                        self.cvsobjects['lines']['qr'] = self.canvas.create_line(
+                            x, y, r_x, r_y, width=3)
+
+            except IndexError:
+                print('IndexError occured updating q')
+            except KeyError:
+                print('KeyError occured updating q')
+            except TypeError:
+                print('TypeError occured updating q')
+
+            try:
+                if ind_r != self.ind_r:
+                    # Change in point r
+                    if self.cvsobjects['texts'].get('r', 'NA') != 'NA':
+                        self.canvas.delete(self.cvsobjects['texts']['r'])
+                        
+                    x, y = self.cvx.points[ind_r]
+                    self.cvsobjects['texts']['r'] = self.canvas.create_text(
+                        x, y+12, text='r '+str(ind_r))
+                    self.ind_r = ind_r
+
+                    if self.cvsobjects['lines'].get('qr', 'NA') != 'NA':
+                        self.canvas.delete(self.cvsobjects['lines']['qr'])
+                    if True or self.ind_q:
+                        q_x, q_y = self.cvx.points[self.ind_q]
+                        self.cvsobjects['lines']['qr'] = self.canvas.create_line(
+                            q_x, q_y, x, y, width=3)
+
+            except IndexError:
+                print('IndexError occured updating r')
+            except KeyError:
+                print('KeyError occured updating r')
+            except TypeError:
+                print('TypeError occured updating r')
+
+            if len(result) > 1:
+                # if there are tentative result indices
+                if self.cvsobjects['r_lines'].get(tuple(result[-2:]), None):
+                    pass
+                else:
+                    x1, y1 = self.cvx.points[result[-2]]
+                    x2, y2 = self.cvx.points[result[-1]]
+                    self.cvsobjects['r_lines'][tuple(result[-2:])] = \
+                        self.canvas.create_line(x1, y1, x2, y2, width=3)
+        except AttributeError:
+            pass
+        #self.counter += 1
+        #print('\t', self.counter)
         
-    def eventCheck(self):
-        #flag = self.event.is_set()
 
-        #self.label['text'] = flag
 
-        #if flag:
-        #    self.drawPoints()
-        #else:
-        #    self.drawPoints()
-        self.count += 1
+    def postJarvisStep(self):
+        """Method called when jarvis algorithm reach termination"""
 
-        if self.max_count:
-            if self.count > self.max_count:
-                import sys
-                sys.exit()
+        # Clear texts and intermediate jarvis step lines
+        for key in self.cvsobjects['lines'].keys():
+            self.canvas.delete(self.cvsobjects['lines'][key])
+        for key in self.cvsobjects['texts'].keys():
+            self.canvas.delete(self.cvsobjects['texts'][key])
 
-        self.drawPoints()
+        # Create final leg of results - joining last ind of result to first
+        last_ind = self.cvx.jarvis['result_hull'][-1]
+        first_ind = self.cvx.jarvis['result_hull'][0]
+        x1, y1 = self.cvx.points[last_ind]
+        x2, y2 = self.cvx.points[first_ind]
+        self.cvsobjects['r_lines'][(last_ind, first_ind)] = \
+            self.canvas.create_line(x1, y1, x2, y2, width=3)
 
-        self.master.after(4000, self.eventCheck)
 
-def timingLoop(event):
-    pass
-    '''
-    while True:
-        event.set()
-        time.sleep(2)
-        event.clear()
-        time.sleep(2)
-    '''
+    def updateCanvas(self, algo='jarvis'):
+        if algo == 'jarvis':
+            self.displayJarvis()
+            if not self.threadjarvis.isAlive():
+                self.postJarvisStep()
+                return
+
+        elif algo == 'graham':
+            # setup code for updates in graham
+            pass
+        self.master.after(self.delay, self.updateCanvas)
+
+
+    def callJarvisAlgorithm(self):
+        self.preJarvisGrahamStep()
+
+        # create a thread for jarvis
+        self.threadjarvis = threading.Thread(
+            target=self.cvx.runJarvis,
+            args=(True,)
+        )
+        self.threadjarvis.daemon = True
+        self.threadjarvis.start()
+
+        # allowing jarvis to be setup
+        time.sleep(0.005)
+        # call to update canvas
+        self.updateCanvas(algo='jarvis')
 
 
 def main():
     root = Tk()
-
-    event = threading.Event()
-    t = threading.Thread(target=timingLoop, args=(event,))
-    t.daemon = True
-    t.start()
-
-    gui = GUI(event, 50)
+    gui = GUI()
     root.geometry("1250x900+300+300")
     root.mainloop()
-
 
 if __name__ == '__main__':
     main()
