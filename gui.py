@@ -17,11 +17,12 @@ class GUI(Frame):
             'lines': {}
         }
         
-        self.delay = 10 # in miliseconds
+        self.delay = 100 # in miliseconds
         self.cvx = ConvexHull2D(n=100, delay=self.delay)
         self.displayInitialPoints()
 
-        self.callJarvisAlgorithm()
+        #self.callJarvisAlgorithm()
+        self.callGrahamAlgorithm()
 
 
     def initializeUserInterface(self):
@@ -158,8 +159,6 @@ class GUI(Frame):
         #self.counter += 1
         #print('\t', self.counter)
         
-
-
     def postJarvisStep(self):
         """Method called when jarvis algorithm reach termination"""
 
@@ -178,6 +177,68 @@ class GUI(Frame):
             self.canvas.create_line(x1, y1, x2, y2, width=3)
 
 
+    def displayGraham(self):
+        try:
+            ind_p = self.cvx.graham['ind_p']
+            ind_q = self.cvx.graham['ind_q']
+            ind_r = self.cvx.graham['ind_r']
+
+            result = self.cvx.graham['result_hull']
+
+            if ind_p != self.ind_p:
+                # change in point p
+                if self.cvsobjects['texts'].get('p', 'NA') != 'NA':
+                    self.canvas.delete(
+                        self.cvsobjects['texts']['p']
+                    )
+                    
+                x, y = self.cvx.points[ind_p]
+                self.cvsobjects['texts']['p'] = self.canvas.create_text(
+                    x, y+12, text='p '+str(ind_p))
+                self.ind_p = ind_p
+
+            if ind_q != self.ind_q:
+                # change in point q
+                if self.cvsobjects['texts'].get('q', 'NA') != 'NA':
+                    self.canvas.delete(
+                        self.cvsobjects['texts']['q']
+                    )
+                x, y = self.cvx.points[ind_q]
+                self.cvsobjects['texts']['q'] = self.canvas.create_text(
+                    x, y+12, text='q '+str(ind_q))
+                self.ind_q = ind_q
+
+            if ind_r != self.ind_r:
+                # change in point r
+                if self.cvsobjects['texts'].get('r', 'NA') != 'NA':
+                    self.canvas.delete(
+                        self.cvsobjects['texts']['r']
+                    )
+                x, y = self.cvx.points[ind_r]
+                self.cvsobjects['texts']['r'] = self.canvas.create_text(
+                    x, y+12, text='r '+str(ind_r))
+                self.ind_r = ind_r
+
+            if len(result) > 1:
+                # if there are tentative result indices
+                if self.cvsobjects['r_lines'].get(tuple(result[-2:]), None):
+                    pass
+                else:
+                    x1, y1 = self.cvx.points[result[-2]]
+                    x2, y2 = self.cvx.points[result[-1]]
+                    self.cvsobjects['r_lines'][tuple(result[-2:])] = \
+                        self.canvas.create_line(x1, y1, x2, y2, width=3)
+                        
+        except AttributeError:
+            print("AttributeError")
+        except IndexError:
+            print("IndexError")
+        except KeyError:
+            print("KeyError")
+        except TypeError:
+            print("TypeError")
+
+
     def updateCanvas(self, algo='jarvis'):
         if algo == 'jarvis':
             self.displayJarvis()
@@ -187,8 +248,14 @@ class GUI(Frame):
 
         elif algo == 'graham':
             # setup code for updates in graham
-            pass
-        self.master.after(self.delay, self.updateCanvas)
+            self.displayGraham()
+            if not self.threadgraham.isAlive():
+                #self.postGrahamStep()
+                return
+
+        self.master.after(self.delay, 
+            self.updateCanvas, algo
+        )
 
 
     def callJarvisAlgorithm(self):
@@ -206,6 +273,23 @@ class GUI(Frame):
         time.sleep(0.005)
         # call to update canvas
         self.updateCanvas(algo='jarvis')
+
+
+    def callGrahamAlgorithm(self):
+        self.preJarvisGrahamStep()
+
+        self.threadgraham = threading.Thread(
+            target=self.cvx.runGraham,
+            args=(True,)
+        )
+        self.threadgraham.daemon = True
+        self.threadgraham.start()
+
+        # allowing graham to be setup
+        time.sleep(0.005)
+
+        #call to update canvas
+        self.updateCanvas(algo='graham')
 
 
 def main():

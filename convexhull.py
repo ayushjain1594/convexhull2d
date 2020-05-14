@@ -88,39 +88,6 @@ class ConvexHull2D:
 				ind_leftMostPoint = ind
 		return ind_leftMostPoint
 
-	"""
-	def runJarvisAlgo(self):
-		''' Jarvis Algorithm '''
-
-		ind_leftMostPoint = self.findLeftMostPoint()
-		ind_p = ind_leftMostPoint
-		result_hull = [ind_p]
-
-		while (True):
-			ind_q = (ind_p + 1) % self.n
-
-			for ind_r, point_r in enumerate(self.points):
-				if ind_r == ind_q:
-					continue
-
-				orientation = self.orientation(ind_p, ind_q, ind_r)
-				if orientation < 0:
-					ind_q = ind_r
-				if orientation == 0:
-					# for overlapping vectors, pick the farther point
-					if self.squareDistance(ind_p, ind_r) > \
-					self.squareDistance(ind_p, ind_q):
-						ind_q = ind_r
-
-			ind_p = ind_q
-
-			if ind_p == ind_leftMostPoint:
-				break
-
-			result_hull.append(ind_p)
-
-		return result_hull
-	"""
 
 	def setupJarvisState(self):
 		print("Setting up jarvis state")
@@ -132,6 +99,7 @@ class ConvexHull2D:
 				'result_hull': [],
 		}
 		print("Finished Setup")
+
 
 	def runJarvis(self, trackstatus=False):
 		if trackstatus:
@@ -246,9 +214,23 @@ class ConvexHull2D:
 		return points
 
 
-	def runGrahamAlgo(self, detail=False):
+	def setupGrahamState(self):
+		print("Setting up graham state")
+		self.graham = {
+			'ind_p': None,
+			'ind_q': None,
+			'ind_r': None,
+			'result_hull': [],
+		}
+		print("Finished Setup")
+
+
+	def runGraham(self, trackstatus=False):
 		""" Graham's Scan Algorithm """
 		
+		if trackstatus:
+			self.setupGrahamState()
+
 		# find the left most point
 		ind_leftMostPoint = self.findLeftMostPoint()
 
@@ -257,33 +239,74 @@ class ConvexHull2D:
 		sorted_points = [self.points[ind_leftMostPoint]] \
 			+ self.sortPointsAround(ind_leftMostPoint)
 
+		# mapping of index of a point in sorted_points array to
+		# index of the same point in original array of points
+		# Assuming no degeneracy in terms of duplicate points
+		index_match = {
+			sorted_points[i]: self.points.index(sorted_points[i])
+			for i in range(len(sorted_points))
+		}
+
 		# result contains indices of sorted_points
 		result_hull = sorted_points[:3]
+
+		if trackstatus:
+			self.graham['result_hull'] = \
+				[index_match.get(sorted_points[i])
+				for i in range(3)]
 
 		if len(sorted_points) > 3:
 			p, q, r = sorted_points[1:4]
 			ind_r = 3
+
+			if trackstatus:
+				self.graham['ind_p'] = index_match.get(p)
+				self.graham['ind_q'] = index_match.get(q)
+				self.graham['ind_r'] = index_match.get(r)
+
 			while (ind_r < len(sorted_points)):
+				
+				if trackstatus:
+					time.sleep(self.delayinsec)
 
 				orient = self.orientation(p, q, r, False)
 				
 				if orient > 0:
 					# move forward
 					result_hull.append(r)
+
+					if trackstatus:
+						self.graham['result_hull'].append(
+							index_match.get(r)
+						)
+
 					p = q
 					q = r
 					ind_r = ind_r + 1
+
 					if ind_r == len(sorted_points):
 						break
 					r = sorted_points[ind_r]
 
+					if trackstatus:
+						self.graham['ind_p'] = index_match.get(p)
+						self.graham['ind_q'] = index_match.get(q)
+						self.graham['ind_r'] = index_match.get(r)
+					
 				else:
 					# remove the last point from result
 					result_hull.pop()
 					p, q = result_hull[-2:]
+
+					if trackstatus:
+						self.graham['result_hull'].pop()
+						self.graham['ind_p'] = index_match.get(p)
+						self.graham['ind_q'] = index_match.get(q)
 		
-		return [self.points.index(point)
-			for point in result_hull]
+		if not trackstatus:
+			return [index_match.get(point) for point in result_hull]
+		else:
+			return
 
 
 	def runChanAlgo(self):
@@ -308,7 +331,7 @@ class ConvexHull2D:
 		cvxhull_subsets = []
 		for subset in subsets:
 			sub_cvx = ConvexHull2D(points=subset)
-			for ind in sub_cvx.runGrahamAlgo():
+			for ind in sub_cvx.runGraham():
 				cvxhull_subsets.append(subset[ind])
 			del sub_cvx
 
@@ -317,18 +340,20 @@ class ConvexHull2D:
 
 		# Return result in original indices
 		return [self.points.index(cvxhull_subsets[ind]) 
-			for ind in sub_cvx.runJarvisAlgo()]
+			for ind in sub_cvx.runJarvis()]
 
 
 	def createHull(self, algo='jarvis'):
 		""""""
 		if algo == 'jarvis':
-			return self.runJarvisAlgo()
+			return self.runJarvis()
 		return []
 
 
 def test(n=300):
-	c = ConvexHull2D(points=[(1, 1), (2, 5), (2, 3), (3, 3)])
+	c = ConvexHull2D(n=300,
+		#points=[(1, 1), (2, 5), (2, 3), (3, 3)]
+	)
 
 	ind_left = c.findLeftMostPoint()
 	sorted_points = c.sortPointsAround(ind_left)
@@ -342,14 +367,14 @@ def test(n=300):
 	jarvis_result = c.runJarvis()
 	print("Jarvis: ", jarvis_result)
 
-	graham_result = c.runGrahamAlgo()
+	graham_result = c.runGraham()
 	print("Graham: ", graham_result)
 
 	chan_result = c.runChanAlgo()
 	print("Chan: ", chan_result)
 
 	if jarvis_result != graham_result:
-		c.runGrahamAlgo(detail=True)
+		c.runGraham(detail=True)
 
 	print('\n\n')
 
