@@ -14,15 +14,15 @@ class GUI(Frame):
             'r_lines': {},
             'circles': {},
             'texts': {},
-            'lines': {}
+            'lines': {},
         }
         
-        self.delay = 100 # in miliseconds
+        self.delay = 200 # in miliseconds
         self.cvx = ConvexHull2D(n=100, delay=self.delay)
         self.displayInitialPoints()
 
-        #self.callJarvisAlgorithm()
-        self.callGrahamAlgorithm()
+        self.callJarvisAlgorithm()
+        #self.callGrahamAlgorithm()
 
 
     def initializeUserInterface(self):
@@ -51,16 +51,19 @@ class GUI(Frame):
         self.ind_p = None
         self.ind_q = None
         self.ind_r = None
+        self.result_len = 0
+        self.resultTupList = []
+        self.firstRun = True
         self.counter = 0
 
     def displayJarvis(self):
         """ UPDATES CANVAS OBJECTS SHOWING JARVIS STEPS"""
         try:
-            ind_p = self.cvx.jarvis['ind_p']
-            ind_q = self.cvx.jarvis['ind_q']
-            ind_r = self.cvx.jarvis['ind_r']
+            ind_p = self.cvx.algo['ind_p']
+            ind_q = self.cvx.algo['ind_q']
+            ind_r = self.cvx.algo['ind_r']
 
-            result = self.cvx.jarvis['result_hull']
+            result = self.cvx.algo['result_hull']
 
             try:
                 if ind_p != self.ind_p:
@@ -169,8 +172,8 @@ class GUI(Frame):
             self.canvas.delete(self.cvsobjects['texts'][key])
 
         # Create final leg of results - joining last ind of result to first
-        last_ind = self.cvx.jarvis['result_hull'][-1]
-        first_ind = self.cvx.jarvis['result_hull'][0]
+        last_ind = self.cvx.algo['result_hull'][-1]
+        first_ind = self.cvx.algo['result_hull'][0]
         x1, y1 = self.cvx.points[last_ind]
         x2, y2 = self.cvx.points[first_ind]
         self.cvsobjects['r_lines'][(last_ind, first_ind)] = \
@@ -179,11 +182,12 @@ class GUI(Frame):
 
     def displayGraham(self):
         try:
-            ind_p = self.cvx.graham['ind_p']
-            ind_q = self.cvx.graham['ind_q']
-            ind_r = self.cvx.graham['ind_r']
+            ind_p = self.cvx.algo['ind_p']
+            ind_q = self.cvx.algo['ind_q']
+            ind_r = self.cvx.algo['ind_r']
 
-            result = self.cvx.graham['result_hull']
+            result = self.cvx.algo['result_hull']
+            print(ind_p, ind_q, ind_r, result)
 
             if ind_p != self.ind_p:
                 # change in point p
@@ -220,14 +224,35 @@ class GUI(Frame):
                 self.ind_r = ind_r
 
             if len(result) > 1:
-                # if there are tentative result indices
-                if self.cvsobjects['r_lines'].get(tuple(result[-2:]), None):
-                    pass
-                else:
-                    x1, y1 = self.cvx.points[result[-2]]
-                    x2, y2 = self.cvx.points[result[-1]]
-                    self.cvsobjects['r_lines'][tuple(result[-2:])] = \
-                        self.canvas.create_line(x1, y1, x2, y2, width=3)
+                if self.firstRun:
+                    for ind in range(len(result)-1):
+                        x1, y1 = self.cvx.points[result[ind]]
+                        x2, y2 = self.cvx.points[result[ind+1]]
+                        self.cvsobjects['r_lines'][tuple(result[ind:ind+2])] = \
+                            self.canvas.create_line(x1, y1, x2, y2, width=3)
+                        self.resultTupList.append(tuple(result[ind:ind+2]))
+                    self.result_len = len(result)
+                    self.firstRun = False
+
+                if len(result) > self.result_len:
+                    # if there are tentative result indices
+                    if self.cvsobjects['r_lines'].get(tuple(result[-2:]), None):
+                        pass
+                    else:
+                        x1, y1 = self.cvx.points[result[-2]]
+                        x2, y2 = self.cvx.points[result[-1]]
+                        self.cvsobjects['r_lines'][tuple(result[-2:])] = \
+                            self.canvas.create_line(x1, y1, x2, y2, width=3)
+                        self.resultTupList.append(tuple(result[-2:]))
+                    self.result_len = len(result)
+
+            if len(result) < self.result_len:
+                lastResultTup = self.resultTupList.pop()
+                if self.cvsobjects['r_lines'].get(lastResultTup, None):
+                    self.canvas.delete(
+                        self.cvsobjects['r_lines'][lastResultTup]
+                    )
+                self.result_len = len(result)
                         
         except AttributeError:
             print("AttributeError")
@@ -239,7 +264,22 @@ class GUI(Frame):
             print("TypeError")
 
 
+    def postGrahamStep(self):
+        for key in self.cvsobjects['lines'].keys():
+            self.canvas.delete(self.cvsobjects['lines'][key])
+        for key in self.cvsobjects['texts'].keys():
+            self.canvas.delete(self.cvsobjects['texts'][key])
+
+        last_ind = self.cvx.algo['result_hull'][-1]
+        first_ind = self.cvx.algo['result_hull'][0]
+        x1, y1 = self.cvx.points[last_ind]
+        x2, y2 = self.cvx.points[first_ind]
+        self.cvsobjects['r_lines'][(last_ind, first_ind)] = \
+            self.canvas.create_line(x1, y1, x2, y2, width=3)
+
+
     def updateCanvas(self, algo='jarvis'):
+        start = time.time()
         if algo == 'jarvis':
             self.displayJarvis()
             if not self.threadjarvis.isAlive():
@@ -248,10 +288,15 @@ class GUI(Frame):
 
         elif algo == 'graham':
             # setup code for updates in graham
+            
             self.displayGraham()
+            
             if not self.threadgraham.isAlive():
-                #self.postGrahamStep()
+                self.postGrahamStep()
                 return
+        delta = time.time() - start
+        if delta > self.delay/1000:
+            print(delta)
 
         self.master.after(self.delay, 
             self.updateCanvas, algo

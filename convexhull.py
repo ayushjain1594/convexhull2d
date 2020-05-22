@@ -89,41 +89,40 @@ class ConvexHull2D:
 		return ind_leftMostPoint
 
 
-	def setupJarvisState(self):
-		print("Setting up jarvis state")
-		self.jarvis = {
+	def setupAlgoState(self):
+		self.algo = {
 			'ind_leftMostPoint': None,
-				'ind_p': None,
-				'ind_q': None,
-				'ind_r': None,
-				'result_hull': [],
+			'ind_p': None,
+			'ind_q': None,
+			'ind_r': None,
+			'result_hull': [],
 		}
-		print("Finished Setup")
+
 
 
 	def runJarvis(self, trackstatus=False):
 		if trackstatus:
-			self.setupJarvisState()
+			self.setupAlgoState()
 
 		ind_leftMostPoint = self.findLeftMostPoint()
 		ind_p = ind_leftMostPoint
 		result_hull = [ind_p]
 		
 		if trackstatus:
-			self.jarvis['ind_leftMostPoint'] = ind_leftMostPoint
-			self.jarvis['ind_p'] = ind_p
-			self.jarvis['result_hull'].append(ind_p)
+			self.algo['ind_leftMostPoint'] = ind_leftMostPoint
+			self.algo['ind_p'] = ind_p
+			self.algo['result_hull'].append(ind_p)
 			
 		while (True):
 
 			ind_q = (ind_p + 1) % self.n
 			if trackstatus:
-				self.jarvis['ind_q'] = ind_q
+				self.algo['ind_q'] = ind_q
 
 			for ind_r, point_r in enumerate(self.points):
 				if trackstatus:
 					time.sleep(self.delayinsec)
-					self.jarvis['ind_r'] = ind_r
+					self.algo['ind_r'] = ind_r
 
 				if ind_r == ind_q:
 					continue
@@ -132,7 +131,7 @@ class ConvexHull2D:
 				if orientation < 0:
 					ind_q = ind_r
 					if trackstatus:
-						self.jarvis['ind_q'] = ind_q
+						self.algo['ind_q'] = ind_q
 
 				if orientation == 0:
 					# for overlapping vectors, pick the farther point
@@ -140,17 +139,17 @@ class ConvexHull2D:
 					self.squareDistance(ind_p, ind_q):
 						ind_q = ind_r
 						if trackstatus:
-							self.jarvis['ind_q'] = ind_q
+							self.algo['ind_q'] = ind_q
 			ind_p = ind_q
 			if trackstatus:
-				self.jarvis['ind_p'] = ind_q
+				self.algo['ind_p'] = ind_q
 
 			if ind_p == ind_leftMostPoint:
 				break
 
 			result_hull.append(ind_p)
 			if trackstatus:
-				self.jarvis['result_hull'].append(ind_p)
+				self.algo['result_hull'].append(ind_p)
 
 		if not trackstatus:
 			return result_hull
@@ -214,22 +213,11 @@ class ConvexHull2D:
 		return points
 
 
-	def setupGrahamState(self):
-		print("Setting up graham state")
-		self.graham = {
-			'ind_p': None,
-			'ind_q': None,
-			'ind_r': None,
-			'result_hull': [],
-		}
-		print("Finished Setup")
-
-
 	def runGraham(self, trackstatus=False):
 		""" Graham's Scan Algorithm """
 		
 		if trackstatus:
-			self.setupGrahamState()
+			self.setupAlgoState()
 
 		# find the left most point
 		ind_leftMostPoint = self.findLeftMostPoint()
@@ -251,7 +239,7 @@ class ConvexHull2D:
 		result_hull = sorted_points[:3]
 
 		if trackstatus:
-			self.graham['result_hull'] = \
+			self.algo['result_hull'] = \
 				[index_match.get(sorted_points[i])
 				for i in range(3)]
 
@@ -260,9 +248,9 @@ class ConvexHull2D:
 			ind_r = 3
 
 			if trackstatus:
-				self.graham['ind_p'] = index_match.get(p)
-				self.graham['ind_q'] = index_match.get(q)
-				self.graham['ind_r'] = index_match.get(r)
+				self.algo['ind_p'] = index_match.get(p)
+				self.algo['ind_q'] = index_match.get(q)
+				self.algo['ind_r'] = index_match.get(r)
 
 			while (ind_r < len(sorted_points)):
 				
@@ -276,7 +264,7 @@ class ConvexHull2D:
 					result_hull.append(r)
 
 					if trackstatus:
-						self.graham['result_hull'].append(
+						self.algo['result_hull'].append(
 							index_match.get(r)
 						)
 
@@ -289,9 +277,9 @@ class ConvexHull2D:
 					r = sorted_points[ind_r]
 
 					if trackstatus:
-						self.graham['ind_p'] = index_match.get(p)
-						self.graham['ind_q'] = index_match.get(q)
-						self.graham['ind_r'] = index_match.get(r)
+						self.algo['ind_p'] = index_match.get(p)
+						self.algo['ind_q'] = index_match.get(q)
+						self.algo['ind_r'] = index_match.get(r)
 					
 				else:
 					# remove the last point from result
@@ -299,9 +287,9 @@ class ConvexHull2D:
 					p, q = result_hull[-2:]
 
 					if trackstatus:
-						self.graham['result_hull'].pop()
-						self.graham['ind_p'] = index_match.get(p)
-						self.graham['ind_q'] = index_match.get(q)
+						self.algo['result_hull'].pop()
+						self.algo['ind_p'] = index_match.get(p)
+						self.algo['ind_q'] = index_match.get(q)
 		
 		if not trackstatus:
 			return [index_match.get(point) for point in result_hull]
