@@ -3,10 +3,11 @@ import time
 import threading
 
 class ConvexHull2D:
-	def __init__(self, n=None, points=None, delay=500):
+	def __init__(self, n=None, points=None, delay=500,
+		max_x=1250, max_y=900):
 		self.count = 0
 		if n:
-			self.generatePoints(n)
+			self.generatePoints(n, (50, max_x-50), (50, max_y-50))
 			if n < 15:
 				print(self.points)
 		if points:
@@ -97,6 +98,7 @@ class ConvexHull2D:
 			'ind_r': None,
 			'result_hull': [],
 		}
+		self.stopalgo = False
 
 
 
@@ -121,6 +123,11 @@ class ConvexHull2D:
 
 			for ind_r, point_r in enumerate(self.points):
 				if trackstatus:
+					
+					if self.stopalgo:
+						# check if a stop request is received
+						return result_hull
+
 					time.sleep(self.delayinsec)
 					self.algo['ind_r'] = ind_r
 
@@ -255,6 +262,10 @@ class ConvexHull2D:
 			while (ind_r < len(sorted_points)):
 				
 				if trackstatus:
+					if self.stopalgo:
+						# check if a stop request is received
+						return result_hull
+
 					time.sleep(self.delayinsec)
 
 				orient = self.orientation(p, q, r, False)

@@ -223,7 +223,8 @@ class DisplayJarvis(Display):
 	def __init__(self, gui):
 		super().__init__(gui)
 		super().preAlgorithmDisplaySetup()
-		super().displayAllPoints()
+		if len(self.gui.cvsobjects['points']) == 0:
+			super().displayAllPoints()
 
 
 	def displayJarvis(self):
@@ -253,7 +254,8 @@ class DisplayGraham(Display):
 	def __init__(self, gui):
 		super().__init__(gui)
 		super().preAlgorithmDisplaySetup()
-		super().displayAllPoints()
+		if len(self.gui.cvsobjects['points']) == 0:
+			super().displayAllPoints()
 
 
 	def displayGraham(self):
